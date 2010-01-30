@@ -6673,22 +6673,23 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                 {
                     // Power Word: Shield
                     if (m_spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000001))
+                    {
                         //+80.68% from +spell bonus
                         DoneActualBenefit = caster->SpellBaseHealingBonus(GetSpellSchoolMask(m_spellProto)) * 0.8068f;
-
-                    // Borrowed Time
-                    if (caster->HasAura(52795))
-                        DoneActualBenefit += caster->SpellBaseHealingBonus(GetSpellSchoolMask(m_spellProto)) * 0.08f;
-                    if (caster->HasAura(52797))
-                        DoneActualBenefit += caster->SpellBaseHealingBonus(GetSpellSchoolMask(m_spellProto)) * 0.16f;
-                    if (caster->HasAura(52798))
-                        DoneActualBenefit += caster->SpellBaseHealingBonus(GetSpellSchoolMask(m_spellProto)) * 0.24f;
-                    if (caster->HasAura(52799))
-                        DoneActualBenefit += caster->SpellBaseHealingBonus(GetSpellSchoolMask(m_spellProto)) * 0.32f;
-                    if (caster->HasAura(52800))
-                        DoneActualBenefit += caster->SpellBaseHealingBonus(GetSpellSchoolMask(m_spellProto)) * 0.40f;
+                        //Borrowed Time
+                        Unit::AuraList const& borrowedTime = caster->GetAurasByType(SPELL_AURA_DUMMY);
+                        for(Unit::AuraList::const_iterator itr = borrowedTime.begin(); itr != borrowedTime.end(); ++itr)
+					    {
+                            SpellEntry const* i_spell = (*itr)->GetSpellProto();
+                            if(i_spell->SpellFamilyName==SPELLFAMILY_PRIEST && i_spell->SpellIconID == 2899 && i_spell->EffectMiscValue[(*itr)->GetEffIndex()] == 24)
+                            {
+                                DoneActualBenefit += DoneActualBenefit * (*itr)->GetModifier()->m_amount / 100;
                     break;
-                }
+                            }
+                        }
+                    }
+
+                    break;
                 case SPELLFAMILY_MAGE:
                     // Frost Ward, Fire Ward
                     if (m_spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000108))

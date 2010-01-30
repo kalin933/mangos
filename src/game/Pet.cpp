@@ -954,7 +954,7 @@ bool Pet::InitStatsForLevel(uint32 petlevel)
         }
         case HUNTER_PET:
         {
-            SetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP, sObjectMgr.GetXPForLevel(petlevel)/10);
+            SetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP, sObjectMgr.GetXPForPetLevel(petlevel));
 
             // size scaling
             CreatureFamilyEntry const* cFamily = sCreatureFamilyStore.LookupEntry(cinfo->family);
