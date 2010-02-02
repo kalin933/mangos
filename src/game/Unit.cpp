@@ -63,7 +63,7 @@ float baseMoveSpeed[MAX_MOVE_TYPE] =
     3.14f                                                   // MOVE_PITCH_RATE
 };
 
-// Used for prepare can/can`t triggr aura
+// Used for prepare can/can`t trigger aura
 static bool InitTriggerAuraData();
 // Define can trigger auras
 static bool isTriggerAura[TOTAL_AURAS];
@@ -71,6 +71,118 @@ static bool isTriggerAura[TOTAL_AURAS];
 static bool isNonTriggerAura[TOTAL_AURAS];
 // Prepare lists
 static bool procPrepared = InitTriggerAuraData();
+
+MovementInfo::MovementInfo(WorldPacket &data)
+{
+    // Init fields
+    moveFlags = MOVEFLAG_NONE;
+    moveFlags2 = MOVEFLAG2_NONE;
+    time = 0;
+    t_guid = 0;
+    t_time = 0;
+    t_seat = -1;
+    t_time2 = 0;
+    s_pitch = 0.0f;
+    fallTime = 0;
+    j_velocity = j_sinAngle = j_cosAngle = j_xyspeed = 0.0f;
+    u_unk1 = 0.0f;
+
+    // Read actual data
+    Read(data);
+}
+
+void MovementInfo::Read(ByteBuffer &data)
+{
+    data >> moveFlags;
+    data >> moveFlags2;
+    data >> time;
+    data >> pos.x;
+    data >> pos.y;
+    data >> pos.z;
+    data >> pos.o;
+
+    if(HasMovementFlag(MOVEFLAG_ONTRANSPORT))
+    {
+        if(!data.readPackGUID(t_guid))
+            return;
+
+        data >> t_pos.x;
+        data >> t_pos.y;
+        data >> t_pos.z;
+        data >> t_pos.o;
+        data >> t_time;
+        data >> t_seat;
+
+        if(moveFlags2 & MOVEFLAG2_UNK1)
+            data >> t_time2;
+    }
+
+    if((HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING))) || (moveFlags2 & MOVEFLAG2_ALLOW_PITCHING))
+    {
+        data >> s_pitch;
+    }
+
+    data >> fallTime;
+
+    if(HasMovementFlag(MOVEFLAG_JUMPING))
+    {
+        data >> j_velocity;
+        data >> j_sinAngle;
+        data >> j_cosAngle;
+        data >> j_xyspeed;
+    }
+
+    if(HasMovementFlag(MOVEFLAG_SPLINE))
+    {
+        data >> u_unk1;
+    }
+}
+
+void MovementInfo::Write(ByteBuffer &data)
+{
+    data << moveFlags;
+    data << moveFlags2;
+    data << time;
+    data << pos.x;
+    data << pos.y;
+    data << pos.z;
+    data << pos.o;
+
+    if(HasMovementFlag(MOVEFLAG_ONTRANSPORT))
+    {
+        data.appendPackGUID(t_guid);
+
+        data << t_pos.x;
+        data << t_pos.y;
+        data << t_pos.z;
+        data << t_pos.o;
+        data << t_time;
+        data << t_seat;
+
+        if(moveFlags2 & MOVEFLAG2_UNK1)
+            data << t_time2;
+    }
+
+    if((HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING))) || (moveFlags2 & MOVEFLAG2_ALLOW_PITCHING))
+    {
+        data << s_pitch;
+    }
+
+    data << fallTime;
+
+    if(HasMovementFlag(MOVEFLAG_JUMPING))
+    {
+        data << j_velocity;
+        data << j_sinAngle;
+        data << j_cosAngle;
+        data << j_xyspeed;
+    }
+
+    if(HasMovementFlag(MOVEFLAG_SPLINE))
+    {
+        data << u_unk1;
+    }
+}
 
 Unit::Unit()
 : WorldObject(), i_motionMaster(this), m_ThreatManager(this), m_HostileRefManager(this)
@@ -324,7 +436,7 @@ void Unit::BuildHeartBeatMsg(WorldPacket *data) const
 {
     MovementFlags move_flags = GetTypeId()==TYPEID_PLAYER
         ? ((Player const*)this)->m_movementInfo.GetMovementFlags()
-        : MOVEMENTFLAG_NONE;
+        : MOVEFLAG_NONE;
 
     data->Initialize(MSG_MOVE_HEARTBEAT, 32);
     data->append(GetPackGUID());
@@ -2858,7 +2970,30 @@ SpellMissInfo Unit::SpellHitResult(Unit *pVictim, SpellEntry const *spell, bool 
 
     // Check for immune
     if (pVictim->IsImmunedToSpell(spell))
-        return SPELL_MISS_IMMUNE;
+    {
+        // Check for shattered throw
+        if (spell->Id == 64382)
+        {
+            // List auras and check thoseone that giving total immunity
+            Unit::AuraMap& Auras = pVictim->GetAuras();
+            if (!Auras.empty())
+                for(Unit::AuraMap::iterator iter = Auras.begin(), next; iter != Auras.end(); iter = next)
+                {
+                    next = iter;
+                    ++next;
+                    SpellEntry const *spell = iter->second->GetSpellProto();
+                    if(spell && spell->Mechanic == MECHANIC_IMMUNE_SHIELD)
+                    {
+                        pVictim->RemoveAurasDueToSpell(spell->Id);
+                        if(Auras.empty())
+                            break;
+                        else
+                            next = Auras.begin();
+                    }
+                }
+        }else
+            return SPELL_MISS_IMMUNE;
+    }
 
     // All positive spells can`t miss
     // TODO: client not show miss log for this spells - so need find info for this in dbc and use it!
@@ -5328,6 +5463,24 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 case 63320:
                     triggered_spell_id = 63321;
                     break;
+                // Item - Shadowmourne Legendary
+                case 71903:
+                {
+                    if (!roll_chance_i(triggerAmount))
+                        return false;
+
+                    Aura *aur = GetAura(71905, 0);
+                    if (aur && aur->GetStackAmount() + 1 >= aur->GetSpellProto()->StackAmount)
+                    {
+                        RemoveAurasDueToSpell(71905);
+                        CastSpell(this, 71904, true);       // Chaos Bane
+                        return true;
+                    }
+                    else
+                        triggered_spell_id = 71905;
+
+                    break;
+                }
             }
             break;
         }
@@ -5686,7 +5839,18 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 // Divine Aegis
                 case 2820:
                 {
-                    basepoints0 = damage * triggerAmount/100;
+                    if(!pVictim || !pVictim->isAlive())
+                        return false;
+
+                    // find Divine Aegis on the target and get absorb amount
+                    Aura* DivineAegis = pVictim->GetAura(47753,0);
+                    if (DivineAegis)
+                        basepoints0 = DivineAegis->GetModifier()->m_amount;
+                    basepoints0 += damage * triggerAmount/100;
+
+                    // limit absorb amount
+                    if (basepoints0 > pVictim->getLevel()*125)
+                        basepoints0 = pVictim->getLevel()*125;
                     triggered_spell_id = 47753;
                     break;
                 }
@@ -9063,7 +9227,7 @@ int32 Unit::SpellBaseDamageBonus(SpellSchoolMask schoolMask)
         }
 
     }
-    return DoneAdvertisedBenefit;
+    return DoneAdvertisedBenefit > 0 ? DoneAdvertisedBenefit : 0;
 }
 
 int32 Unit::SpellBaseDamageBonusForVictim(SpellSchoolMask schoolMask, Unit *pVictim)
@@ -9087,7 +9251,7 @@ int32 Unit::SpellBaseDamageBonusForVictim(SpellSchoolMask schoolMask, Unit *pVic
             TakenAdvertisedBenefit += (*i)->GetModifier()->m_amount;
     }
 
-    return TakenAdvertisedBenefit;
+    return TakenAdvertisedBenefit > 0 ? TakenAdvertisedBenefit : 0;
 }
 
 int32 Unit::GetMaxSpellBaseDamageBonus(SpellSchoolMask schoolMask)
@@ -10571,7 +10735,7 @@ void Unit::UpdateWalkMode(Unit* source, bool self)
     else if (self)
     {
         bool on = source->GetTypeId() == TYPEID_PLAYER
-            ? ((Player*)source)->HasMovementFlag(MOVEMENTFLAG_WALK_MODE)
+            ? ((Player*)source)->HasMovementFlag(MOVEFLAG_WALK_MODE)
             : ((Creature*)source)->HasMonsterMoveFlag(MONSTER_MOVE_WALK);
 
         if (on)
@@ -12544,7 +12708,7 @@ void Unit::SetFeignDeath(bool apply, uint64 const& casterGUID, uint32 spellID)
         if(GetTypeId() != TYPEID_PLAYER)
             StopMoving();
         else
-            ((Player*)this)->m_movementInfo.SetMovementFlags(MOVEMENTFLAG_NONE);
+            ((Player*)this)->m_movementInfo.SetMovementFlags(MOVEFLAG_NONE);
 
                                                             // blizz like 2.0.x
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_29);

@@ -326,6 +326,7 @@ void Spell::EffectSchoolDMG(uint32 effect_idx)
                     case 45150:                             // Meteor Slash
                     case 64422: case 64688:                 // Sonic Screech
                     case 70492: case 72505:                 // Ooze Eruption
+                    case 71904:                             // Chaos Bane
                     case 72624: case 72625:                 // Ooze Eruption
                     {
                         uint32 count = 0;
@@ -1173,6 +1174,16 @@ void Spell::EffectDummy(uint32 i)
                     m_caster->CastSpell(m_caster, 45088, true);
                     return;
                 }
+                case 45449:
+                {
+                    // Arcane Prisoner Rescue triggering summon and giving Q credit
+                    if(m_caster->GetTypeId() == TYPEID_PLAYER)
+                    {
+                        m_caster->CastSpell(m_caster, ((((Player*)m_caster)->GetTeam() == ALLIANCE) ? 45448 : 45446), true);
+                        m_caster->CastSpell(m_caster, 45456, true);
+                    }
+                    return;
+                }
                 case 46605:
                 {
                     // Darkness of a Thousand Souls (EffectBasePoint[2] points at wrong spell 45656, so i has to be hacked)
@@ -1550,8 +1561,9 @@ void Spell::EffectDummy(uint32 i)
             {
                 if(!unitTarget)
                     return;
-                m_damage+=m_caster->CalculateDamage(m_attackType, false);
-                m_damage+=damage;
+
+                // dummy cast itself ignored by client in logs
+                m_caster->CastCustomSpell(unitTarget,50782,&damage,NULL,NULL,true);
                 return;
             }
             // Concussion Blow
@@ -6408,7 +6420,16 @@ void Spell::EffectSummonObject(uint32 i)
     }
     // Summon in random point all other units if location present
     else
-        m_caster->GetClosePoint(x, y, z, DEFAULT_WORLD_OBJECT_SIZE);
+    {
+        if(m_spellInfo->Id == 48018)
+        {
+            x = m_caster->GetPositionX();
+            y = m_caster->GetPositionY();
+            z = m_caster->GetPositionZ();
+        }
+        else
+            m_caster->GetClosePoint(x, y, z, DEFAULT_WORLD_OBJECT_SIZE);
+    }
 
     Map *map = m_caster->GetMap();
     if(!pGameObj->Create(sObjectMgr.GenerateLowGuid(HIGHGUID_GAMEOBJECT), go_id, map,
@@ -6850,24 +6871,14 @@ void Spell::EffectSummonAllTotems(uint32 i)
     if(m_caster->GetTypeId() != TYPEID_PLAYER)
         return;
 
-    switch(m_spellInfo->Id)
-    {
-        case 66842:         // Call of the Elements
-        case 66843:         // Call of the Ancestors
-        case 66844:         // Call of the Spirits
-        {
-            for(int32 slot = 0; slot != MAX_TOTEM; ++slot)
-            {
-                uint8 button = m_spellInfo->EffectMiscValue[i]+slot+132;
-                uint32 spell_id = ((Player*)m_caster)->GetActionByActionButton(button);
-                if(spell_id && !((Player*)m_caster)->HasSpellCooldown(spell_id))
+    int32 start_button = ACTION_BUTTON_SHAMAN_TOTEMS_BAR + m_spellInfo->EffectMiscValue[i];
+    int32 amount_buttons = m_spellInfo->EffectMiscValueB[i];
+
+    for(int32 slot = 0; slot < amount_buttons; ++slot)
+        if (ActionButton const* actionButton = ((Player*)m_caster)->GetActionButton(start_button+slot))
+            if (actionButton->GetType()==ACTION_BUTTON_SPELL)
+                if (uint32 spell_id = actionButton->GetAction())
                     m_caster->CastSpell(unitTarget,spell_id,true);
-            }
-            break;
-        }
-        default:
-            break;
-    }
 }
 
 void Spell::EffectDestroyAllTotems(uint32 /*i*/)
