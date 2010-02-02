@@ -1973,7 +1973,7 @@ uint32 Pet::CalcScalingAuraBonus(SpellEntry const* spellInfo, uint8 effect_index
                 // warlock pet scaling aura
                 case 34947:
                 {
-                    ownerValue = owner->GetMaxSpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE & SPELL_SCHOOL_MASK_SHADOW));
+                    ownerValue = owner->GetMaxSpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_SHADOW));
                     scale = 0.15f;
                     break;
                 }
@@ -2091,7 +2091,7 @@ uint32 Pet::CalcScalingAuraBonus(SpellEntry const* spellInfo, uint8 effect_index
                 // warlock pet scaling aura
                 case 34947:
                 {
-                    ownerValue = owner->GetMaxSpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE & SPELL_SCHOOL_MASK_SHADOW));
+                    ownerValue = owner->GetMaxSpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_SHADOW));
                     scale = 0.57f;
                     break;
                 }
