@@ -2669,9 +2669,7 @@ void Spell::cast(bool skipCheck)
         {
             if (m_spellInfo->Mechanic == MECHANIC_BANDAGE)  // Bandages
                 AddPrecastSpell(11196);                     // Recently Bandaged
-            else if(m_spellInfo->SpellIconID == 1662 && m_spellInfo->AttributesEx & 0x20)
-                                                            // Blood Fury (Racial)
-                AddPrecastSpell(23230);                     // Blood Fury - Healing Reduction
+
             else if(m_spellInfo->Id == 20594)               // Stoneskin
                 AddTriggeredSpell(65116);                   // Stoneskin - armor 10% for 8 sec
 
@@ -4544,15 +4542,14 @@ SpellCastResult Spell::CheckCast(bool strict)
                         if (m_spellInfo->EffectImplicitTargetA[j] == TARGET_SCRIPT_COORDINATES && m_spellInfo->Effect[j] != SPELL_EFFECT_PERSISTENT_AREA_AURA)
                             AddGOTarget(goScriptTarget, j);
                     }
-                    // store explicit target for TARGET_SCRIPT
-                    else if (m_spellInfo->EffectImplicitTargetA[j] == TARGET_SCRIPT ||
-                        m_spellInfo->EffectImplicitTargetB[j] == TARGET_SCRIPT)
-                            AddGOTarget(goScriptTarget, j);
 
                     // store explicit target for TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT
-                    else if (m_spellInfo->EffectImplicitTargetA[j] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT ||
-                        m_spellInfo->EffectImplicitTargetB[j] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT)
+                    else 
+                    {
+                        if (m_spellInfo->EffectImplicitTargetA[j] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT ||
+                            m_spellInfo->EffectImplicitTargetB[j] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT)
                             AddGOTarget(goScriptTarget, j);
+                    }
                 }
                 //Missing DB Entry or targets for this spellEffect.
                 else
@@ -5420,7 +5417,7 @@ SpellCastResult Spell::CheckRange(bool strict)
 int32 Spell::CalculatePowerCost()
 {
     // item cast not used power
-    if(m_CastItem)
+    if (m_CastItem)
         return 0;
 
     // Spell drain all exist power on cast (Only paladin lay of Hands)
@@ -6188,6 +6185,12 @@ bool Spell::IsNeedSendToClient() const
 {
     return m_spellInfo->SpellVisual[0] || m_spellInfo->SpellVisual[1] || IsChanneledSpell(m_spellInfo) ||
         m_spellInfo->speed > 0.0f || !m_triggeredByAuraSpell && !m_IsTriggeredSpell;
+}
+
+
+bool Spell::IsTriggeredSpellWithRedundentData() const
+{
+    return m_IsTriggeredSpell && (m_spellInfo->manaCost || m_spellInfo->ManaCostPercentage);
 }
 
 bool Spell::HaveTargetsForEffect( uint8 effect ) const
