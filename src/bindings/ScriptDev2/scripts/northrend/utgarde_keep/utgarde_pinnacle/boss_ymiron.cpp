@@ -40,26 +40,29 @@ enum Sounds
 
 enum Spells
 {
-    SPELL_BANE                                = 48294,
-    H_SPELL_BANE                              = 59301,
-    SPELL_DARK_SLASH                          = 48292,
-    SPELL_FETID_ROT                           = 48291,
-    H_SPELL_FETID_ROT                         = 59300,
-    SPELL_SCREAMS_OF_THE_DEAD                 = 51750,
-    SPELL_SPIRIT_BURST                        = 48529,
-    H_SPELL_SPIRIT_BURST                      = 59305,
-    SPELL_SPIRIT_STRIKE                       = 48423,
-    H_SPELL_SPIRIT_STRIKE                     = 59304,
-    SPELL_ANCESTORS_VENGEANCE                 = 16939,
+    SPELL_BANE                              = 48294,
+    H_SPELL_BANE                            = 59301,
+    SPELL_DARK_SLASH                        = 48292,
+    SPELL_FETID_ROT                         = 48291,
+    H_SPELL_FETID_ROT                       = 59300,
+    SPELL_SCREAMS_OF_THE_DEAD               = 51750,
+    SPELL_SPIRIT_BURST                      = 48529,
+    H_SPELL_SPIRIT_BURST                    = 59305,
+    SPELL_SPIRIT_STRIKE                     = 48423,
+    H_SPELL_SPIRIT_STRIKE                   = 59304,
+    SPELL_ANCESTORS_VENGEANCE               = 16939,
 
-    SPELL_SUMMON_AVENGING_SPIRIT              = 48592,
-    SPELL_SUMMON_SPIRIT_FOUNT                 = 48386,
+    SPELL_SUMMON_AVENGING_SPIRIT            = 48592,
+    SPELL_SUMMON_SPIRIT_FOUNT               = 48386,
 
-    SPELL_CHANNEL_SPIRIT_TO_YMIRON            = 48316,
-    SPELL_CHANNEL_YMIRON_TO_SPIRIT            = 48307,
+    SPELL_CHANNEL_SPIRIT_TO_YMIRON          = 48316,
+    SPELL_CHANNEL_YMIRON_TO_SPIRIT          = 48307,
 
-    SPELL_SPIRIT_FOUNT                        = 48380,
-    H_SPELL_SPIRIT_FOUNT                      = 59320
+    SPELL_SPIRIT_FOUNT                      = 48380,
+    H_SPELL_SPIRIT_FOUNT                    = 59320,
+
+    SPELL_SUMMON_AVENGING_SPIRIT            = 48592,
+    SPELL_SUMMON_SPIRIT_FOUNT               = 48386
 };
 
 enum Creatures
@@ -72,8 +75,8 @@ enum Creatures
     CREATURE_RANULF_VISUAL                  = 27311,
     CREATURE_TORGYN                         = 27309,
     CREATURE_TORGYN_VISUAL                  = 27312,
-    CREATURE_SPIRIT_FOUNT                   = 27339,
-    CREATURE_AVENGING_SPIRIT                = 27386
+//    CREATURE_SPIRIT_FOUNT                   = 27339,
+//    CREATURE_AVENGING_SPIRIT                = 27386
 };
 
 float BoatCorrds[4][2] =
@@ -126,9 +129,9 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
         m_bIsRanulf                  = false;
         m_bIsTorgyn                  = false;
         m_bIsPause                   = false;             
-        m_uiFetidRotTimer            = urand(8000,13000);
-        m_uiBaneTimer                = urand(18000,23000);
-        m_uiDarkSlashTimer           = urand(28000,33000);
+        m_uiFetidRotTimer            = urand(8000, 13000);
+        m_uiBaneTimer                = urand(18000, 23000);
+        m_uiDarkSlashTimer           = urand(28000, 33000);
         m_uiAncestorsVengeanceTimer  = 50000;
         m_uiOrbTargetChanger         = 5000;
         m_uiOrbGUID                  = 0;
@@ -189,32 +192,30 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
         if(m_uiBaneTimer < uiDiff)
         {
             DoCast(m_creature, m_bIsRegularMode ? SPELL_BANE : H_SPELL_BANE, true);
-            m_uiBaneTimer = urand(15000,20000);
+            m_uiBaneTimer = urand(15000, 20000);
         }else m_uiBaneTimer -= uiDiff;
 
         if(m_uiFetidRotTimer < uiDiff)
         {
             if(Unit* pPlayer = SelectUnit(SELECT_TARGET_RANDOM,0))
                 m_creature->CastSpell(pPlayer, m_bIsRegularMode ? SPELL_FETID_ROT : H_SPELL_FETID_ROT, true);
-            m_uiFetidRotTimer = urand(10000,15000);
+            m_uiFetidRotTimer = urand(10000, 15000);
         }else m_uiFetidRotTimer -= uiDiff;
 
-        //need to hack this
         if(m_uiDarkSlashTimer < uiDiff)
         {
-            if(Unit* pPlayer = m_creature->getVictim())
+            if(Unit* pUnit = m_creature->getVictim())
             {
-                //m_creature->DealDamage(target, target->GetMaxHealth()*((rand() % 15+70)*0.01), NULL, SPELL_DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NATURE, NULL, false);
-                m_creature->DealDamage(m_creature->getVictim(),pPlayer->GetMaxHealth()*0.5, NULL, SPELL_DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
-                m_creature->CastSpell(m_creature->getVictim(), SPELL_DARK_SLASH, true); //not working
+                int32 damage = int32(pUnit->GetMaxHealth() * 0.5);
+                m_creature->CastCustomSpell(pUnit, SPELL_DARK_SLASH, &damage, 0, 0, false); 
             }
-            m_uiDarkSlashTimer = urand(30000,35000);
+            m_uiDarkSlashTimer = urand(30000, 35000);
         }else m_uiDarkSlashTimer -= uiDiff;
 
         if(m_uiAncestorsVengeanceTimer < uiDiff)
         {
             DoCast(m_creature, SPELL_ANCESTORS_VENGEANCE);
-            m_uiAncestorsVengeanceTimer =  (m_bIsRegularMode ? urand(60000,65000) : urand(45000,50000));
+            m_uiAncestorsVengeanceTimer =  (m_bIsRegularMode ? urand(60000, 65000) : urand(45000, 50000));
         }else m_uiAncestorsVengeanceTimer -= uiDiff;
 
         if(m_bIsHaldor && m_uiAbilityHALDORTimer < uiDiff)
@@ -264,14 +265,11 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
             m_creature->CastSpell(m_creature, SPELL_CHANNEL_YMIRON_TO_SPIRIT, true);
 
             if(m_uiCurentBoat == 0)
-                m_uiCurentBoat = urand(1,4);
-            else 
-            {
-                if(m_uiCurentBoat == 4)
+                m_uiCurentBoat = urand(1, 4);
+            else if(m_uiCurentBoat == 4)
                     m_uiCurentBoat = 1;
-                else
-                    ++m_uiCurentBoat;
-            }
+            else
+                ++m_uiCurentBoat;
 
             m_bIsBjorn  = false;
             m_bIsHaldor = false;
