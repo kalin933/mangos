@@ -5527,6 +5527,16 @@ void Spell::EffectScriptEffect(uint32 effIndex)
                     m_caster->RemoveAurasDueToSpell(47331);
                     return;
                 }
+                // Avenging Spirits
+                case 48590:
+                {
+                    // Summon Avenging Spirit Summoners
+                    m_caster->CastSpell(m_caster, 48586, true);
+                    m_caster->CastSpell(m_caster, 48587, true);
+                    m_caster->CastSpell(m_caster, 48588, true);
+                    m_caster->CastSpell(m_caster, 48589, true);
+                    return;
+                }
                 // High Executor's Branding Iron
                 case 48603:
                     // Torture the Torturer: High Executor's Branding Iron Impact

@@ -70,10 +70,8 @@ enum Spells
 
 
     SPELL_SUMMON_SPIRIT_FOUNT               = 48386,
-    SPELL_SUMMON_AVENGING_SPIRITS_VISUAL    = 48590 // PRZESUNAC SUMMONY DO SCRIPT_EFFECT
+    SPELL_AVENGING_SPIRITS                  = 48590
 };
-
-uint32 SpellSummonAvengingSpirit[4] = {48586, 48587, 48588, 48589};
 
 enum Creatures
 {
@@ -142,7 +140,6 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
         m_uiBaneTimer                = urand(18000, 23000);
         m_uiDarkSlashTimer           = urand(28000, 33000);
         m_uiAncestorsVengeanceTimer  = 50000;
-        m_uiAbilityTORGYNTimer       = 5000;
         m_uiOrbTargetChanger         = 5000;
         m_uiOrbGUID                  = 0;
         m_uiCurentBoat               = 0;
@@ -247,11 +244,8 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
 
         if(m_bIsTorgyn && m_uiAbilityTORGYNTimer <= uiDiff)
         {
-            for (uint8 i = 0; i < 4; ++i)
-            {
-                DoCast(m_creature, SpellSummonAvengingSpirit[i], true);
-            }
-            m_uiAbilityTORGYNTimer = 10000;
+            DoCast(m_creature, SPELL_AVENGING_SPIRITS, false);
+            m_uiAbilityTORGYNTimer = 50000;
         }else m_uiAbilityTORGYNTimer -= uiDiff;
 
         if(m_bIsRanulf && m_uiAbilityRANULFTimer < uiDiff)
