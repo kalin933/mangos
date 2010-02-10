@@ -52,18 +52,28 @@ enum Spells
     H_SPELL_SPIRIT_STRIKE                   = 59304,
     SPELL_ANCESTORS_VENGEANCE               = 16939,
 
-    SPELL_SUMMON_AVENGING_SPIRIT            = 48592,
-    SPELL_SUMMON_SPIRIT_FOUNT               = 48386,
-
     SPELL_CHANNEL_SPIRIT_TO_YMIRON          = 48316,
     SPELL_CHANNEL_YMIRON_TO_SPIRIT          = 48307,
 
     SPELL_SPIRIT_FOUNT                      = 48380,
     H_SPELL_SPIRIT_FOUNT                    = 59320,
 
-    SPELL_SUMMON_AVENGING_SPIRIT            = 48592,
-    SPELL_SUMMON_SPIRIT_FOUNT               = 48386
+    SPELL_CHOOSE_SPIRIT                     = 48306,
+    SPELL_TRANSFORM_SPIRIT_1                = 48308,
+    SPELL_TRANSFORM_SPIRIT_2                = 48311,
+    SPELL_TRANSFORM_SPIRIT_3                = 48312,
+    SPELL_TRANSFORM_SPIRIT_4                = 48313,
+
+    SPIRIT_DIES                             = 48596,
+
+    SPELL_COSM_GHOST_TELEPORT               = 52096,
+
+
+    SPELL_SUMMON_SPIRIT_FOUNT               = 48386,
+    SPELL_SUMMON_AVENGING_SPIRITS_VISUAL    = 48590 // PRZESUNAC SUMMONY DO SCRIPT_EFFECT
 };
+
+uint32 SpellSummonAvengingSpirit[4] = {48586, 48587, 48588, 48589};
 
 enum Creatures
 {
@@ -75,8 +85,7 @@ enum Creatures
     CREATURE_RANULF_VISUAL                  = 27311,
     CREATURE_TORGYN                         = 27309,
     CREATURE_TORGYN_VISUAL                  = 27312,
-//    CREATURE_SPIRIT_FOUNT                   = 27339,
-//    CREATURE_AVENGING_SPIRIT                = 27386
+    CREATURE_SPIRIT_FOUNT                   = 27339
 };
 
 float BoatCorrds[4][2] =
@@ -133,6 +142,7 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
         m_uiBaneTimer                = urand(18000, 23000);
         m_uiDarkSlashTimer           = urand(28000, 33000);
         m_uiAncestorsVengeanceTimer  = 50000;
+        m_uiAbilityTORGYNTimer       = 5000;
         m_uiOrbTargetChanger         = 5000;
         m_uiOrbGUID                  = 0;
         m_uiCurentBoat               = 0;
@@ -160,6 +170,19 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
         DoScriptText(SAY_DEATH, m_creature);
     }
 
+    void JustSummoned(Creature* pSummoned)
+    {
+        switch(pSummoned->GetEntry())
+        {
+            case CREATURE_SPIRIT_FOUNT:
+                pSummoned->CastSpell(pSummoned, m_bIsRegularMode ? SPELL_SPIRIT_FOUNT : H_SPELL_SPIRIT_FOUNT, true);
+                m_uiOrbGUID = pSummoned->GetGUID();
+                m_uiOrbTargetChanger = 1000;
+                break;
+            default: break;
+        }
+    }
+
     void UpdateAI(const uint32 uiDiff)
     {
         if(!m_creature->SelectHostileTarget() || !m_creature->getVictim())
@@ -167,14 +190,11 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
 
         if(m_bIsPause)
         {
-            m_creature->StopMoving();
-            m_creature->GetMotionMaster()->Clear();
-            m_creature->GetMotionMaster()->MoveIdle();
+            SetCombatMovement(false);
 
             if(m_uiPauseTimer < uiDiff)
             {
-                if(m_creature->getVictim())
-                    m_creature->GetMotionMaster()->MoveChase(m_creature->getVictim());
+                SetCombatMovement(true);
                 m_bIsPause = false;
             }else m_uiPauseTimer -= uiDiff;
             return;
@@ -214,7 +234,7 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
 
         if(m_uiAncestorsVengeanceTimer < uiDiff)
         {
-            DoCast(m_creature, SPELL_ANCESTORS_VENGEANCE);
+            DoCast(m_creature, SPELL_ANCESTORS_VENGEANCE, false);
             m_uiAncestorsVengeanceTimer =  (m_bIsRegularMode ? urand(60000, 65000) : urand(45000, 50000));
         }else m_uiAncestorsVengeanceTimer -= uiDiff;
 
@@ -225,12 +245,12 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
             m_uiAbilityHALDORTimer = 5000; // overtime
         } else m_uiAbilityHALDORTimer -= uiDiff;
 
-        if(m_bIsTorgyn && m_uiAbilityTORGYNTimer < uiDiff)
+        if(m_bIsTorgyn && m_uiAbilityTORGYNTimer <= uiDiff)
         {
             for (uint8 i = 0; i < 4; ++i)
-                if (Creature* pSpirit = m_creature->SummonCreature(CREATURE_AVENGING_SPIRIT, m_creature->GetPositionX()+urand(1,10), m_creature->GetPositionY()+urand(1,10), m_creature->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
-                    if (Unit* pPlayer = SelectUnit(SELECT_TARGET_RANDOM, 0))
-                        pSpirit->AI()->AttackStart(pPlayer);
+            {
+                DoCast(m_creature, SpellSummonAvengingSpirit[i], true);
+            }
             m_uiAbilityTORGYNTimer = 10000;
         }else m_uiAbilityTORGYNTimer -= uiDiff;
 
@@ -242,12 +262,7 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
 
         if(m_bIsBjorn && m_uiAbilityBJORNTimer < uiDiff)
         {
-            if (Creature* pSpirit = m_creature->SummonCreature(CREATURE_SPIRIT_FOUNT, m_creature->GetPositionX()+urand(1,10), m_creature->GetPositionY()+urand(1,10), m_creature->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
-            {
-                pSpirit->CastSpell(pSpirit, m_bIsRegularMode ? SPELL_SPIRIT_FOUNT : H_SPELL_SPIRIT_FOUNT, true);
-                m_uiOrbGUID = pSpirit->GetGUID();
-                m_uiOrbTargetChanger = 1000;
-            }
+            DoCast(m_creature, SPELL_SUMMON_SPIRIT_FOUNT, false);
             m_bIsBjorn = false;
         } else m_uiAbilityBJORNTimer -= uiDiff;
 
