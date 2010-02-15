@@ -30,7 +30,6 @@
 #define __TBB_task_group_H
 
 #include "task.h"
-#include <exception>
 
 namespace tbb {
 
@@ -82,7 +81,11 @@ protected:
     empty_task* my_root;
     task_group_context my_context;
 
+#if __TBB_RELAXED_OWNERSHIP
     task& owner () { return *my_root; }
+#else
+    task& owner () { return task::self(); }
+#endif
 
     template<typename F>
     task_group_status internal_run_and_wait( F& f ) {
@@ -173,9 +176,10 @@ public:
     }
 
     template<typename F>
-    task_group_status run_and_wait( task_handle<F>& h ) {
-      return internal_run_and_wait< task_handle<F> >( h );
+    task_group_status run_and_wait( F& f ) {
+        return internal_run_and_wait<F>( f );
     }
+
 }; // class task_group
 
 class missing_wait : public std::exception {
@@ -216,11 +220,6 @@ public:
 inline 
 bool is_current_task_group_canceling() {
     return task::self().is_cancelled();
-}
-
-template<class F>
-task_handle<F> make_task( const F& f ) {
-    return task_handle<F>( f );
 }
 
 } // namespace tbb

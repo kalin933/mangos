@@ -42,7 +42,6 @@ __TBB_internal_free;
 __TBB_internal_malloc;
 __TBB_internal_realloc;
 __TBB_internal_posix_memalign;
-scalable_msize;
 
 local:
 

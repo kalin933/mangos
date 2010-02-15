@@ -30,7 +30,7 @@
 
 #include "tbb/itt_notify.cpp"
 
-#if MALLOC_CHECK_RECURSION
+#if MALLOC_LD_PRELOAD
 
 #include <pthread.h>
 #include <stdio.h>
@@ -40,31 +40,30 @@
 #include <errno.h>
 #endif
 
-#if MALLOC_LD_PRELOAD
-
 extern "C" {
 
 void   safer_scalable_free( void*, void (*)(void*) );
-void * safer_scalable_realloc( void*, size_t, void* );
+void * safer_scalable_realloc( void*, size_t, void* (*)(void*,size_t) );
 
 bool __TBB_internal_find_original_malloc(int num, const char *names[], void *table[])  __attribute__ ((weak));
 
 }
 
+#define malloc_proxy __TBB_malloc_proxy
+
 #endif /* MALLOC_LD_PRELOAD */
-#endif /* MALLOC_CHECK_RECURSION */
 
 namespace rml {
 namespace internal {
 
-#if MALLOC_CHECK_RECURSION
+#if MALLOC_LD_PRELOAD
 
 void* (*original_malloc_ptr)(size_t) = 0;
 void  (*original_free_ptr)(void*) = 0;
 static void* (*original_calloc_ptr)(size_t,size_t) = 0;
 static void* (*original_realloc_ptr)(void*,size_t) = 0;
 
-#endif /* MALLOC_CHECK_RECURSION */
+#endif /* MALLOC_LD_PRELOAD */
 
 #if __TBB_NEW_ITT_NOTIFY
 extern "C" 
@@ -128,32 +127,75 @@ struct RegisterProcessShutdownNotification {
 static RegisterProcessShutdownNotification reg;
 #endif
 
-#if MALLOC_CHECK_RECURSION
+#if MALLOC_LD_PRELOAD
 
 bool  original_malloc_found;
 
-#if MALLOC_LD_PRELOAD
+pthread_t   recursive_malloc_call_thread;
+int         recursive_malloc_call_flag;
+
+void lockRecursiveMallocFlag()
+{
+    recursive_malloc_call_thread = pthread_self();
+    recursive_malloc_call_flag = 1;
+}
+void unlockRecursiveMallocFlag()
+{
+    recursive_malloc_call_flag = 0;
+}
+static inline bool underRecursiveMallocFlag()
+{
+    return recursive_malloc_call_flag
+        && pthread_equal( recursive_malloc_call_thread, pthread_self());
+}
 
 extern "C" {
 
 void * __TBB_internal_malloc(size_t size)
 {
-    return scalable_malloc(size);
+    if ( underRecursiveMallocFlag() ) {
+        if ( original_malloc_found ){
+            return original_malloc_ptr(size);
+        }else{
+            return NULL;
+        }
+    }else{
+        return (void*)scalable_malloc(size);
+    }
 }
 
 void * __TBB_internal_calloc(size_t num, size_t size)
 {
-    return scalable_calloc(num, size);
+    if ( underRecursiveMallocFlag() ) {
+        if ( original_malloc_found ){
+#if __sun
+            /* There seem to be run time problems on Solaris if original_calloc_ptr is used. */
+            size_t arraySize = num * size;
+            void *result = original_malloc_ptr(arraySize);
+            if (result)
+                memset(result, 0, arraySize);
+            return result;
+#else
+            return original_calloc_ptr(num, size);
+#endif
+        }else{
+            return NULL;
+        }
+    }else{
+        return scalable_calloc(num, size);
+    }
 }
 
 int __TBB_internal_posix_memalign(void **memptr, size_t alignment, size_t size)
 {
+    MALLOC_ASSERT( !underRecursiveMallocFlag(), 
+                   "posix_memalign not expected to create a cyclic dependency" );
     return scalable_posix_memalign(memptr, alignment, size);
 }
 
 void* __TBB_internal_realloc(void* ptr, size_t sz)
 {
-    return safer_scalable_realloc(ptr, sz, (void*&)original_realloc_ptr);
+    return safer_scalable_realloc(ptr, sz, original_realloc_ptr);
 }
 
 void __TBB_internal_free(void *object)
@@ -164,7 +206,6 @@ void __TBB_internal_free(void *object)
 } /* extern "C" */
 
 #endif /* MALLOC_LD_PRELOAD */
-#endif /* MALLOC_CHECK_RECURSION */
 
 } } // namespaces
 

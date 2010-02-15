@@ -46,7 +46,7 @@ ifeq (ia32,$(arch))
 endif
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /DTBB_USE_DEBUG
+        CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /DTBB_USE_DEBUG /DDO_ITT_ANNOTATE
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 

@@ -154,9 +154,9 @@ public:
 #if _WIN32||_WIN64
     uint32_t consumer_wait_generation;
     uint32_t n_consumers_to_wakeup;
-    char pad1[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(atomic<size_t>)+sizeof(atomic<uint32_t>)+sizeof(uint32_t)+sizeof(uint32_t))&(NFS_MaxLineSize-1))];
+    char pad1[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(size_t)+sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint32_t))&(NFS_MaxLineSize-1))];
 #else
-    char pad1[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(atomic<size_t>)+sizeof(atomic<uint32_t>))&(NFS_MaxLineSize-1))];
+    char pad1[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(size_t)+sizeof(uint32_t))&(NFS_MaxLineSize-1))];
 #endif
 
     atomic<ticket> tail_counter;
@@ -166,14 +166,14 @@ public:
 #if _WIN32||_WIN64
     uint32_t producer_wait_generation;
     uint32_t n_producers_to_wakeup;
-    char pad2[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(atomic<uint32_t>)+sizeof(uint32_t)+sizeof(uint32_t))&(NFS_MaxLineSize-1))];
+    char pad2[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint32_t))&(NFS_MaxLineSize-1))];
 #else
-    char pad2[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(atomic<uint32_t>))&(NFS_MaxLineSize-1))];
+    char pad2[NFS_MaxLineSize-((sizeof(atomic<ticket>)+sizeof(waitvar_t)+sizeof(mutexvar_t)+sizeof(uint32_t))&(NFS_MaxLineSize-1))];
 #endif
 #else /* !__TBB_NO_BUSY_WAIT_IN_CONCURRENT_QUEUE */
     atomic<ticket> head_counter;
     atomic<size_t> n_invalid_entries;
-    char pad1[NFS_MaxLineSize-sizeof(atomic<ticket>)-sizeof(atomic<size_t>)];
+    char pad1[NFS_MaxLineSize-sizeof(atomic<ticket>)-sizeof(size_t)];
     atomic<ticket> tail_counter;
     char pad2[NFS_MaxLineSize-sizeof(atomic<ticket>)];
 #endif /* __TBB_NO_BUSY_WAIT_IN_CONCURRENT_QUEUE */

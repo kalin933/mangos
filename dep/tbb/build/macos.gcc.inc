@@ -59,12 +59,6 @@ ifeq (intel64,$(arch))
     LIB_LINK_FLAGS += -m64
 endif
 
-ifeq (ia32,$(arch))
-    CPLUS_FLAGS += -m32
-    LINK_FLAGS += -m32
-    LIB_LINK_FLAGS += -m32
-endif
-
 ifeq (ppc64,$(arch))
     CPLUS_FLAGS += -arch ppc64
     LINK_FLAGS += -arch ppc64

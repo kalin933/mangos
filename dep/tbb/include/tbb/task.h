@@ -32,6 +32,10 @@
 #include "tbb_stddef.h"
 #include "tbb_machine.h"
 
+#if __TBB_EXCEPTIONS
+#include "cache_aligned_allocator.h"
+#endif /* __TBB_EXCEPTIONS */
+
 namespace tbb {
 
 class task;
@@ -160,8 +164,7 @@ namespace internal {
             In the "blocking style" of programming, this field is one more than the difference. */
         reference_count ref_count;
 
-        //! Obsolete. Used to be scheduling depth before TBB 2.2
-        /** Retained only for the sake of backward binary compatibility. **/
+        //! Scheduling depth
         int depth;
 
         //! A task::state_type, stored as a byte for compactness.
@@ -503,6 +506,7 @@ public:
         __TBB_ASSERT( new_parent.prefix().state!=freed, "parent already freed" );
         p.state = allocated;
         p.parent = &new_parent;
+        p.depth = new_parent.prefix().depth+1;
 #if __TBB_EXCEPTIONS
         p.context = new_parent.prefix().context;
 #endif /* __TBB_EXCEPTIONS */
@@ -516,12 +520,38 @@ public:
         prefix().state = reexecute;
     }
 
+#if __TBB_TASK_DEQUE
     // All depth-related methods are obsolete, and are retained for the sake 
     // of backward source compatibility only
     intptr_t depth() const {return 0;}
     void set_depth( intptr_t ) {}
     void add_to_depth( int ) {}
 
+#else /* !__TBB_TASK_DEQUE */
+    //! A scheduling depth.
+    /** Guaranteed to be a signed integral type. */
+    typedef internal::intptr depth_type;
+
+    //! Scheduling depth
+    depth_type depth() const {return prefix().depth;}
+
+    //! Set scheduling depth to given value.
+    /** The depth must be non-negative */
+    void set_depth( depth_type new_depth ) {
+        __TBB_ASSERT( state()!=ready, "cannot change depth of ready task" );
+        __TBB_ASSERT( new_depth>=0, "depth cannot be negative" );
+        __TBB_ASSERT( new_depth==int(new_depth), "integer overflow error");
+        prefix().depth = int(new_depth);
+    }
+
+    //! Change scheduling depth by given amount.
+    /** The resulting depth must be non-negative. */
+    void add_to_depth( int delta ) {
+        __TBB_ASSERT( state()!=ready, "cannot change depth of ready task" );
+        __TBB_ASSERT( prefix().depth>=-delta, "depth cannot be negative" );
+        prefix().depth+=delta;
+    }
+#endif /* !__TBB_TASK_DEQUE */
 
     //------------------------------------------------------------------------
     // Spawning and blocking
@@ -558,14 +588,21 @@ public:
         is important to ensure that at least one child has not completed until
         the parent is ready to run. */
     void spawn( task& child ) {
+#if !__TBB_RELAXED_OWNERSHIP
+        __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+#endif /* !__TBB_RELAXED_OWNERSHIP */
         prefix().owner->spawn( child, child.prefix().next );
     }
 
     //! Spawn multiple tasks and clear list.
+    /** All of the tasks must be at the same depth. */
     void spawn( task_list& list );
 
     //! Similar to spawn followed by wait_for_all, but more efficient.
     void spawn_and_wait_for_all( task& child ) {
+#if !__TBB_RELAXED_OWNERSHIP
+        __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+#endif /* !__TBB_RELAXED_OWNERSHIP */
         prefix().owner->wait_for_all( *this, &child );
     }
 
@@ -576,6 +613,9 @@ public:
     /** The thread that calls spawn_root_and_wait must be the same thread
         that allocated the task. */
     static void spawn_root_and_wait( task& root ) {
+#if !__TBB_RELAXED_OWNERSHIP
+        __TBB_ASSERT( root.is_owned_by_current_thread(), "root not owned by current thread" );
+#endif /* !__TBB_RELAXED_OWNERSHIP */
         root.prefix().owner->spawn_root_and_wait( root, root.prefix().next );
     }
 
@@ -587,6 +627,9 @@ public:
     //! Wait for reference count to become one, and set reference count to zero.
     /** Works on tasks while waiting. */
     void wait_for_all() {
+#if !__TBB_RELAXED_OWNERSHIP
+        __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+#endif /* !__TBB_RELAXED_OWNERSHIP */
         prefix().owner->wait_for_all( *this, NULL );
     }
 
@@ -603,6 +646,12 @@ public:
 
     //! True if task is owned by different thread than thread that owns its parent.
     bool is_stolen_task() const {
+#if __TBB_PROVIDE_VIRTUAL_SCHEDULER
+        // The virtual scheduler directly identifies stolen tasks.
+        int es_virtual_steal = 4;
+        if(prefix().extra_state & es_virtual_steal)
+            return true;
+#endif /* TBB_PROVIDE_VIRTUAL_SCHEDULER */
         internal::task_prefix& p = prefix();
         internal::task_prefix& q = parent()->prefix();
         return p.owner!=q.owner;
@@ -624,7 +673,7 @@ public:
         return int(prefix().ref_count);
     }
 
-    //! Obsolete, and only retained for the sake of backward compatibility. Always returns true.
+    //! True if this task is owned by the calling thread; false otherwise.
     bool __TBB_EXPORTED_METHOD is_owned_by_current_thread() const;
 
     //------------------------------------------------------------------------
@@ -727,6 +776,9 @@ public:
 };
 
 inline void task::spawn( task_list& list ) {
+#if !__TBB_RELAXED_OWNERSHIP
+    __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+#endif /* !__TBB_RELAXED_OWNERSHIP */
     if( task* t = list.first ) {
         prefix().owner->spawn( *t, *list.next_ptr );
         list.clear();
@@ -735,6 +787,9 @@ inline void task::spawn( task_list& list ) {
 
 inline void task::spawn_root_and_wait( task_list& root_list ) {
     if( task* t = root_list.first ) {
+#if !__TBB_RELAXED_OWNERSHIP
+        __TBB_ASSERT( t->is_owned_by_current_thread(), "'this' not owned by current thread" );
+#endif /* !__TBB_RELAXED_OWNERSHIP */
         t->prefix().owner->spawn_root_and_wait( *t, *root_list.next_ptr );
         root_list.clear();
     }

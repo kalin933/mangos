@@ -81,6 +81,7 @@ namespace tbb {
             *SyncType_Scheduler;
     //! Display names of internal synchronization components/scenarios
     extern const tchar 
+            *SyncObj_LibraryInitialization,
             *SyncObj_SchedulerInitialization,
             *SyncObj_SchedulersList,
             *SyncObj_TaskStealingLoop,

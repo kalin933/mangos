@@ -229,12 +229,6 @@ typedef size_t uintptr;
     but it happens to be for all platforms of interest. */
 typedef std::ptrdiff_t intptr;
 
-//! Compile-time constant that is upper bound on cache line/sector size.
-/** It should be used only in situations where having a compile-time upper 
-    bound is more useful than a run-time exact answer.
-    @ingroup memory_allocation */
-const size_t NFS_MaxLineSize = 128;
-
 //! Report a runtime warning.
 void __TBB_EXPORTED_FUNC runtime_warning( const char* format, ... );
 

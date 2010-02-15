@@ -29,20 +29,8 @@
 #ifndef _itt_shared_malloc_MapMemory_H
 #define _itt_shared_malloc_MapMemory_H
 
-#if __linux__ || __APPLE__ || __sun || __FreeBSD__
-
-#if __sun && !defined(_XPG4_2)
- // To have void* as mmap's 1st argument
- #define _XPG4_2 1
- #define XPG4_WAS_DEFINED 1
-#endif
-
+#if __linux__ || __APPLE__
 #include <sys/mman.h>
-
-#if XPG4_WAS_DEFINED
- #undef _XPG4_2
- #undef XPG4_WAS_DEFINED
-#endif
 
 #define MEMORY_MAPPING_USES_MALLOC 0
 void* MapMemory (size_t bytes)
@@ -80,7 +68,6 @@ int UnmapMemory(void *area, size_t bytes)
 #else
 #include <stdlib.h>
 
-#define MEMORY_MAPPING_USES_MALLOC 1
 void* MapMemory (size_t bytes)
 {
     return malloc( bytes );
@@ -93,9 +80,5 @@ int UnmapMemory(void *area, size_t bytes)
 }
 
 #endif /* OS dependent */
-
-#if MALLOC_CHECK_RECURSION && MEMORY_MAPPING_USES_MALLOC
-#error Impossible to protect against malloc recursion when memory mapping uses malloc.
-#endif
 
 #endif /* _itt_shared_malloc_MapMemory_H */
