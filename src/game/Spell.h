@@ -21,6 +21,8 @@
 
 #include "GridDefines.h"
 #include "SharedDefines.h"
+#include "../../dep/tbb/include/tbb/concurrent_vector.h"
+#include <memory>
 
 class WorldSession;
 class Unit;
@@ -443,8 +445,14 @@ class Spell
 
         CurrentSpellTypes GetCurrentContainer();
 
+        // caster types:
+        // formal spell caster, in game source of spell affects cast
         Unit* GetCaster() const { return m_caster; }
-        Unit* GetOriginalCaster() const { return m_originalCaster; }
+        // real source of cast affects, explcit caster, or DoT/HoT applier, or GO owner, etc. Can be NULL
+        Unit* GetAffectiveCaster() const { return m_originalCasterGUID ? m_originalCaster : m_caster; }
+        // m_originalCasterGUID can store GO guid, and in this case this is visual caster
+        WorldObject* GetCastingObject() const;
+
         int32 GetPowerCost() const { return m_powerCost; }
 
         void UpdatePointers();                              // must be used at call Spell code after time delay (non triggered spell cast/update spell call/etc)
@@ -465,6 +473,7 @@ class Spell
 
         void SendLoot(uint64 guid, LootType loottype);
         bool IgnoreItemRequirements() const;                        // some item use spells have unexpected reagent data
+        void UpdateOriginalCasterPointer();
 
         Unit* m_caster;
 
@@ -545,7 +554,7 @@ class Spell
             uint8  effectMask:8;
             bool   processed:1;
         };
-        std::list<TargetInfo> m_UniqueTargetInfo;
+        tbb::concurrent_vector<TargetInfo> m_UniqueTargetInfo;
         uint8 m_needAliveTargetMask;                        // Mask req. alive targets
 
         struct GOTargetInfo
@@ -555,14 +564,14 @@ class Spell
             uint8  effectMask:8;
             bool   processed:1;
         };
-        std::list<GOTargetInfo> m_UniqueGOTargetInfo;
+        tbb::concurrent_vector<GOTargetInfo> m_UniqueGOTargetInfo;
 
         struct ItemTargetInfo
         {
             Item  *item;
             uint8 effectMask;
         };
-        std::list<ItemTargetInfo> m_UniqueItemInfo;
+        tbb::concurrent_vector<ItemTargetInfo> m_UniqueItemInfo;
 
         void AddUnitTarget(Unit* target, uint32 effIndex);
         void AddUnitTarget(uint64 unitGUID, uint32 effIndex);
@@ -618,7 +627,7 @@ namespace MaNGOS
         SpellNotifierPlayer(Spell &spell, std::list<Unit*> &data, const uint32 &i, float radius)
             : i_data(data), i_spell(spell), i_index(i), i_radius(radius)
         {
-            i_originalCaster = i_spell.GetOriginalCaster();
+            i_originalCaster = i_spell.GetAffectiveCaster();
         }
 
         void Visit(PlayerMapType &m)
@@ -655,7 +664,7 @@ namespace MaNGOS
             SpellTargets TargetType = SPELL_TARGETS_NOT_FRIENDLY)
             : i_data(&data), i_spell(spell), i_push_type(type), i_radius(radius), i_TargetType(TargetType)
         {
-            i_originalCaster = spell.GetOriginalCaster();
+            i_originalCaster = spell.GetAffectiveCaster();
         }
 
         template<class T> inline void Visit(GridRefManager<T>  &m)
@@ -718,23 +727,23 @@ namespace MaNGOS
                 switch(i_push_type)
                 {
                     case PUSH_IN_FRONT:
-                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, 2*M_PI/3 ))
+                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, 2*M_PI_F/3 ))
                             i_data->push_back(itr->getSource());
                         break;
                     case PUSH_IN_FRONT_90:
-                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, M_PI/2 ))
+                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, M_PI_F/2 ))
                             i_data->push_back(itr->getSource());
                         break;
                     case PUSH_IN_FRONT_30:
-                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, M_PI/6 ))
+                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, M_PI_F/6 ))
                             i_data->push_back(itr->getSource());
                         break;
                     case PUSH_IN_FRONT_15:
-                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, M_PI/12 ))
+                        if(i_spell.GetCaster()->isInFront((Unit*)(itr->getSource()), i_radius, M_PI_F/12 ))
                             i_data->push_back(itr->getSource());
                         break;
                     case PUSH_IN_BACK:
-                        if(i_spell.GetCaster()->isInBack((Unit*)(itr->getSource()), i_radius, 2*M_PI/3 ))
+                        if(i_spell.GetCaster()->isInBack((Unit*)(itr->getSource()), i_radius, 2*M_PI_F/3 ))
                             i_data->push_back(itr->getSource());
                         break;
                     case PUSH_SELF_CENTER:

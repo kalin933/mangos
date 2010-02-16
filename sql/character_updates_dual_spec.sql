@@ -15,12 +15,12 @@ CREATE TABLE `character_glyphs` (
 -- Get glyphs from correct field in data blob and insert into character_glyphs as spec = 0
 INSERT INTO `character_glyphs` 
 SELECT `guid`, 0,
-(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1288),  ' ', -1) AS UNSIGNED)) AS `glyph1`,
-(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1289),  ' ', -1) AS UNSIGNED)) AS `glyph2`,
-(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1290),  ' ', -1) AS UNSIGNED)) AS `glyph3`,
-(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1291),  ' ', -1) AS UNSIGNED)) AS `glyph4`,
-(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1292),  ' ', -1) AS UNSIGNED)) AS `glyph5`,
-(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1293),  ' ', -1) AS UNSIGNED)) AS `glyph6` 
+(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1319),  ' ', -1) AS UNSIGNED)) AS `glyph1`,
+(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1320),  ' ', -1) AS UNSIGNED)) AS `glyph2`,
+(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1321),  ' ', -1) AS UNSIGNED)) AS `glyph3`,
+(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1322),  ' ', -1) AS UNSIGNED)) AS `glyph4`,
+(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1323),  ' ', -1) AS UNSIGNED)) AS `glyph5`,
+(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ', 1324),  ' ', -1) AS UNSIGNED)) AS `glyph6` 
 FROM `characters`;
 
 CREATE TABLE `character_talent` (
@@ -39,7 +39,7 @@ DELETE FROM `character_spell` WHERE `spell` IN (12505,12522,12523,12524,12525,12
 /* Machiavelli & Nonox - Some missed talents: */
 DELETE FROM `character_spell` WHERE `spell` IN (3674,5420,9800,19263,20927,20928,20929,20930,24905,27174,27179,31904,32699,32700,33072,33891,34123,48359,48824,48825,48826,48827,48951,48952,50170,50171,50172,50306,50536,51373,51374,51375,51376,51378,51379,52881,53640,55265,55270,55271,57019,57224,62795,63668,63669,63670,63671,63672,64299,65139);
 
-ALTER TABLE `characters` ADD `speccount` tinyint(3) unsigned NOT NULL default 1 AFTER `arena_pending_points`;
+ALTER TABLE `characters` ADD `speccount` tinyint(3) unsigned NOT NULL default 1 AFTER `arenaPoints`;
 ALTER TABLE `characters` ADD `activespec` tinyint(3) unsigned NOT NULL default 0 AFTER `speccount`;
 
 ALTER TABLE `character_action` RENAME `character_action_old`;

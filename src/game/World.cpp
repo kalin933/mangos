@@ -20,7 +20,6 @@
     \ingroup world
 */
 
-#include <omp.h>
 #include "Common.h"
 #include "Database/DatabaseEnv.h"
 #include "Config/ConfigEnv.h"
@@ -319,7 +318,7 @@ bool World::RemoveQueuedPlayer(WorldSession* sess)
         --sessions;
 
     // accept first in queue
-    if( (!m_playerLimit || sessions < m_playerLimit) && !m_QueuedPlayer.empty() )
+    if( (!m_playerLimit || (int32)sessions < m_playerLimit) && !m_QueuedPlayer.empty() )
     {
         WorldSession* pop_sess = m_QueuedPlayer.front();
         pop_sess->SetInQueue(false);
@@ -569,7 +568,7 @@ void World::LoadConfigSettings(bool reload)
     if(reload)
         sMapMgr.SetGridCleanUpDelay(m_configs[CONFIG_INTERVAL_GRIDCLEAN]);
 
-    m_configs[CONFIG_NUMTHREADS] = sConfig.GetIntDefault("MapUpdate.Threads",1);
+    m_configs[CONFIG_NUMTHREADS] = sConfig.GetIntDefault("MapUpdate.Threads", 1);
     m_configs[CONFIG_INTERVAL_MAPUPDATE] = sConfig.GetIntDefault("MapUpdateInterval", 100);
     if(m_configs[CONFIG_INTERVAL_MAPUPDATE] < MIN_MAP_UPDATE_DELAY)
     {
@@ -1174,6 +1173,9 @@ void World::SetInitialWorldSettings()
 
     sLog.outString( "Packing instances..." );
     sInstanceSaveMgr.PackInstances();
+
+    sLog.outString( "Packing groups..." );
+    sObjectMgr.PackGroupIds();
 
     sLog.outString();
     sLog.outString( "Loading Localization strings..." );

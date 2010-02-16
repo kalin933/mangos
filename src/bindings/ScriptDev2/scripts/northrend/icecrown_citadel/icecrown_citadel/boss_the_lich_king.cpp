@@ -1,6 +1,4 @@
-/*
- * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
- *
+/* Copyright (C) 2006 - 2010 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,31 +14,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef MANGOS_SOCKETDEFINES_H
-#define MANGOS_SOCKETDEFINES_H
+/* ScriptData
+SDName: boss_the_lich_king
+SD%Complete: 0%
+SDComment:
+SDCategory: Icecrown Citadel
+EndScriptData */
 
-#ifdef WIN32
-
-/* Windows socket definitions
- */
-#define FD_SETSIZE 1024
-#include <winsock2.h>
-#include <Ws2tcpip.h>
-
-typedef SOCKET SocketHandle;
-typedef fd_set SelectSet;
-
-#else
-
-/* The unix socket definitions
- */
-#include <sys/socket.h>
-#include <netinet/in.h>
-#ifdef __APPLE_CC__
-#include <sys/select.h>
-#endif
-
-typedef int SocketHandle;
-typedef fd_set SelectSet;
-#endif
-#endif
+#include "precompiled.h"

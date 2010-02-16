@@ -381,9 +381,9 @@ class ObjectMgr
 
         typedef UNORDERED_MAP<uint32, Item*> ItemMap;
 
-        typedef std::set< Group * > GroupSet;
+        typedef UNORDERED_MAP<uint32, Group*> GroupMap;
 
-        typedef UNORDERED_MAP<uint32, Guild *> GuildMap;
+        typedef UNORDERED_MAP<uint32, Guild*> GuildMap;
 
         typedef UNORDERED_MAP<uint32, ArenaTeam*> ArenaTeamMap;
 
@@ -408,9 +408,10 @@ class ObjectMgr
         void LoadGameobjectInfo();
         void AddGameobjectInfo(GameObjectInfo *goinfo);
 
-        Group * GetGroupByLeader(const uint64 &guid) const;
-        void AddGroup(Group* group) { mGroupSet.insert( group ); }
-        void RemoveGroup(Group* group) { mGroupSet.erase( group ); }
+        void PackGroupIds();
+        Group* GetGroupById(uint32 id) const;
+        void AddGroup(Group* group);
+        void RemoveGroup(Group* group);
 
         Guild* GetGuildByLeader(uint64 const&guid) const;
         Guild* GetGuildById(uint32 GuildId) const;
@@ -655,6 +656,7 @@ class ObjectMgr
         uint32 GenerateAuctionID();
         uint64 GenerateEquipmentSetGuid();
         uint32 GenerateGuildId();
+        uint32 GenerateGroupId();
         uint32 GenerateItemTextID();
         uint32 GenerateMailID();
         uint32 GeneratePetNumber();
@@ -907,8 +909,9 @@ class ObjectMgr
         uint32 m_ItemTextId;
         uint32 m_mailid;
         uint32 m_hiPetNumber;
+        uint32 m_groupId;
 
-        // first free low guid for seelcted guid type
+        // first free low guid for selected guid type
         uint32 m_hiCharGuid;
         uint32 m_hiCreatureGuid;
         uint32 m_hiItemGuid;
@@ -923,7 +926,7 @@ class ObjectMgr
         typedef std::set<uint32> TavernAreaTriggerSet;
         typedef std::set<uint32> GameObjectForQuestSet;
 
-        GroupSet            mGroupSet;
+        GroupMap            mGroupMap;
         GuildMap            mGuildMap;
         ArenaTeamMap        mArenaTeamMap;
 

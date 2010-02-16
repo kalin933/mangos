@@ -243,7 +243,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS]=
     &Aura::HandleNoImmediateEffect,                         //190 SPELL_AURA_MOD_FACTION_REPUTATION_GAIN     implemented in Player::CalculateReputationGain
     &Aura::HandleAuraModUseNormalSpeed,                     //191 SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED
     &Aura::HandleModMeleeRangedSpeedPct,                    //192 SPELL_AURA_HASTE_MELEE
-    &Aura::HandleModCombatSpeedPct,                         //193 SPELL_AURA_MELEE_SLOW (in fact combat (any type attack) speed pct)
+    &Aura::HandleNULL,                                      //252 haste all?
     &Aura::HandleNoImmediateEffect,                         //194 SPELL_AURA_MOD_IGNORE_ABSORB_SCHOOL       implement in Unit::CalcNotIgnoreAbsorbDamage
     &Aura::HandleNoImmediateEffect,                         //195 SPELL_AURA_MOD_IGNORE_ABSORB_FOR_SPELL    implement in Unit::CalcNotIgnoreAbsorbDamage
     &Aura::HandleNULL,                                      //196 SPELL_AURA_MOD_COOLDOWN (single spell 24818 in 3.2.2a)
@@ -1344,7 +1344,7 @@ bool Aura::modStackAmount(int32 num)
 
     // Modify stack but limit it
     int32 stackAmount = m_stackAmount + num;
-    if (stackAmount > m_spellProto->StackAmount)
+    if (stackAmount > (int32)m_spellProto->StackAmount)
         stackAmount = m_spellProto->StackAmount;
     else if (stackAmount <=0) // Last aura from stack removed
     {
@@ -2268,6 +2268,20 @@ void Aura::TriggerSpell()
                 target->CastCustomSpell(target, trigger_spell_id, &mana, NULL, NULL, true, NULL, this);
                 return;
             }
+			// Penance effects
+            case 47758:
+            case 47757:
+            case 53001:
+            case 52986:
+            case 53002:
+            case 52987:
+            case 53003:
+            case 52988:
+            {
+                if (Unit* caster = GetCaster())
+                    caster->CastSpell(target, triggeredSpellInfo, true, NULL, this, casterGUID);
+                return;
+            }
         }
     }
 
@@ -2383,6 +2397,36 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                             // not use ammo and not allow use
                             ((Player*)m_target)->RemoveAmmo();
                         return;
+                    case 55328:                                 // Stoneclaw Totem I
+                        m_target->CastSpell(m_target, 5728, true);
+                        return;
+                    case 55329:                                 // Stoneclaw Totem II
+                        m_target->CastSpell(m_target, 6397, true);
+                        return;
+                    case 55330:                                 // Stoneclaw Totem III
+                        m_target->CastSpell(m_target, 6398, true);
+                        return;
+                    case 55332:                                 // Stoneclaw Totem IV
+                        m_target->CastSpell(m_target, 6399, true);
+                        return;
+                    case 55333:                                 // Stoneclaw Totem V
+                        m_target->CastSpell(m_target, 10425, true);
+                        return;
+                    case 55335:                                 // Stoneclaw Totem VI
+                        m_target->CastSpell(m_target, 10426, true);
+                        return;
+                    case 55278:                                 // Stoneclaw Totem VII
+                        m_target->CastSpell(m_target, 25513, true);
+                        return;
+                    case 58589:                                 // Stoneclaw Totem VIII
+                        m_target->CastSpell(m_target, 58583, true);
+                        return;
+                    case 58590:                                 // Stoneclaw Totem IX
+                        m_target->CastSpell(m_target, 58584, true);
+                        return;
+                    case 58591:                                 // Stoneclaw Totem X
+                        m_target->CastSpell(m_target, 58585, true);
+                        return;
                     case 62061:                             // Festive Holiday Mount
                         if (m_target->HasAuraType(SPELL_AURA_MOUNTED))
                             // Reindeer Transformation
@@ -2433,7 +2477,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     SpellEntry const* buffEntry = sSpellStore.LookupEntry(55166);
                     if (!buffEntry)
                         return;
-                    for(int k = 0; k < buffEntry->StackAmount; ++k)
+                    for(uint32 k = 0; k < buffEntry->StackAmount; ++k)
                         m_target->CastSpell(m_target, buffEntry, true, NULL, this);
                 }
                 // Earth Shield
@@ -2640,7 +2684,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         if (!spell || !caster)
                             return;
 
-                        for (int i=0; i < spell->StackAmount; ++i)
+                        for (uint32 i = 0; i < spell->StackAmount; ++i)
                             caster->CastSpell(m_target, spellId, true, NULL, NULL, GetCasterGUID());
                         return;
                     }
@@ -2657,7 +2701,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         Unit* caster = GetCaster();
                         if (!spell || !caster)
                             return;
-                        for (int i=0; i < spell->StackAmount; ++i)
+                        for (uint32 i=0; i < spell->StackAmount; ++i)
                             caster->CastSpell(m_target, spell->Id, true, NULL, NULL, GetCasterGUID());
                         return;
                     }
@@ -3213,7 +3257,7 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                     {
                         // Furor chance is now amount allowed to save energy for cat form
                         // without talent it reset to 0
-                        if (m_target->GetPower(POWER_ENERGY) > furorChance)
+                        if ((int32)m_target->GetPower(POWER_ENERGY) > furorChance)
                         {
                             m_target->SetPower(POWER_ENERGY, 0);
                             m_target->CastCustomSpell(m_target, 17099, &furorChance, NULL, NULL, this);
@@ -3222,7 +3266,7 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                     else if(furorChance)                    // only if talent known
                     {
                         m_target->SetPower(POWER_RAGE, 0);
-                        if(urand(1,100) <= furorChance)
+                        if(irand(1,100) <= furorChance)
                             m_target->CastSpell(m_target, 17057, true, NULL, this);
                     }
                     break;
@@ -3742,7 +3786,7 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
     {
         pet->AttackStop();
         pet->GetMotionMaster()->MoveFollow(caster, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
-        pet->AddMonsterMoveFlag(MONSTER_MOVE_WALK);
+        pet->AddSplineFlag(SPLINEFLAG_WALKMODE);
     }
 }
 
@@ -4300,6 +4344,10 @@ void Aura::HandleAuraModRoot(bool apply, bool Real)
             }
         }
     }
+
+    // Heroic Fury (remove Intercept cooldown)
+    if( apply && GetId() == 60970 && m_target->GetTypeId() == TYPEID_PLAYER )
+        ((Player*)m_target)->RemoveSpellCooldown(20252,true);
 }
 
 void Aura::HandleAuraModSilence(bool apply, bool Real)
@@ -4571,10 +4619,6 @@ void Aura::HandleModMechanicImmunity(bool apply, bool /*Real*/)
             }
         }
     }
-
-    // Heroic Fury (remove Intercept cooldown)
-    if( apply && GetId() == 60970 && m_target->GetTypeId() == TYPEID_PLAYER )
-        ((Player*)m_target)->RemoveSpellCooldown(20252,true);
 }
 
 void Aura::HandleModMechanicImmunityMask(bool apply, bool /*Real*/)
@@ -4910,15 +4954,10 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
                     float mwb_min = caster->GetWeaponDamageRange(BASE_ATTACK,MINDAMAGE);
                     float mwb_max = caster->GetWeaponDamageRange(BASE_ATTACK,MAXDAMAGE);
                     m_modifier.m_amount+=int32(((mwb_min+mwb_max)/2+ap*mws/14000)*0.2f);
-
-                    SpellChainNode const* RendSpell = sSpellMgr.GetSpellChainNode(m_spellProto->Id);
-
-                    if (RendSpell->rank >= 9)
-                    {
-                        if (m_target->GetHealth() > m_target->GetMaxHealth()*0.75f)
-                            m_modifier.m_amount += int32(GetModifier()->m_amount*0.35);
-                    }
-
+                    // If used while target is above 75% health, Rend does 35% more damage
+                    if( m_spellProto->CalculateSimpleValue(1) !=0 &&
+                        m_target->GetHealth() > m_target->GetMaxHealth() * m_spellProto->CalculateSimpleValue(1) / 100)
+                        m_modifier.m_amount += m_modifier.m_amount * m_spellProto->CalculateSimpleValue(2) / 100;
                     return;
                 }
                 break;
@@ -5442,7 +5481,7 @@ void Aura::HandleAuraModIncreaseHealth(bool apply, bool Real)
         case 44055: case 55915: case 55917: case 67596:     // Tremendous Fortitude (Battlemaster's Alacrity)
         case 50322:                                         // Survival Instincts
         case 54443:                                         // Demonic Empowerment (Voidwalker)
-        case 55233:                                            // Vampiric Blood
+        case 55233:                                         // Vampiric Blood
         {
             if(Real)
             {
@@ -7872,21 +7911,13 @@ void Aura::PeriodicDummyTick()
                 // Harpooner's Mark
                 // case 40084:
                 //    return;
-                // Feeding Frenzy Rank 1
+                // Feeding Frenzy Rank 1 & 2
                 case 53511:
-                {
-                    Unit* victim = m_target->getVictim();
-                    if( victim && victim->GetHealth() * 100 < victim->GetMaxHealth() * 35 )
-                        m_target->CastSpell(m_target, 60096, true, NULL, this);
-                    return;
-                }
-                break;
-                // Feeding Frenzy Rank 2
                 case 53512:
                 {
                     Unit* victim = m_target->getVictim();
                     if( victim && victim->GetHealth() * 100 < victim->GetMaxHealth() * 35 )
-                        m_target->CastSpell(m_target, 60097, true, NULL, this);
+                        m_target->CastSpell(m_target, spell->Id == 53511 ? 60096 : 60097, true, NULL, this);
                     return;
                 }
                 default:
