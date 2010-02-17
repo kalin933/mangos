@@ -23,6 +23,7 @@ SDCategory: Utgarde Pinnacle
 EndScriptData */
 
 #include "precompiled.h"
+#include "utgarde_pinnacle.h"
 
 enum Sounds
 {
@@ -74,25 +75,16 @@ enum Spells
 };
 
 enum Creatures
-{
-    CREATURE_BJORN                          = 27303,
-    CREATURE_BJORN_VISUAL                   = 27304,
-    CREATURE_HALDOR                         = 27307,
-    CREATURE_HALDOR_VISUAL                  = 27310,
-    CREATURE_RANULF                         = 27308,
-    CREATURE_RANULF_VISUAL                  = 27311,
-    CREATURE_TORGYN                         = 27309,
+{   
+    CREATURE_BJORN_VISUAL                   = 27304,    
+    CREATURE_HALDOR_VISUAL                  = 27310,    
+    CREATURE_RANULF_VISUAL                  = 27311,    
     CREATURE_TORGYN_VISUAL                  = 27312,
+
     CREATURE_SPIRIT_FOUNT                   = 27339
 };
 
-float BoatCorrds[4][2] =
-{
-    {380.319f, -334.941f},
-    {380.919f, -314.122f},
-    {404.683f, -314.437f},
-    {403.023f, -335.461f}
-};
+uint32 Kings[4] = {DATA_BJORN, DATA_HALDOR, DATA_RANULF, DATA_TORGYN};
 
 /*######
 ## boss_ymiron
@@ -108,12 +100,15 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
     }
 
     ScriptedInstance* m_pInstance;
+
+    std::list<uint64> Summons;
     bool m_bIsRegularMode;
-    bool m_bIsPause;
+    bool bKingSequence;
     bool m_bIsBjorn;
     bool m_bIsHaldor;
     bool m_bIsRanulf;
     bool m_bIsTorgyn;
+    bool bIsInRun;
 
     uint64 m_uiOrbGUID;
     uint32 m_uiPauseTimer;
@@ -126,30 +121,47 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
     uint32 m_uiAbilityRANULFTimer;
     uint32 m_uiAbilityTORGYNTimer;
     uint32 m_uiAbilityHALDORTimer;
-    uint8  m_uiCurentBoat;
-    uint8  m_uiHealthAmountModifier;
+    uint8  m_uiCurrentKing;
+    uint32 m_uiThreshhold;
+    uint8 subphase;
 
     void Reset()
     {
-        m_bIsBjorn                   = false;
-        m_bIsHaldor                  = false;
-        m_bIsRanulf                  = false;
-        m_bIsTorgyn                  = false;
-        m_bIsPause                   = false;             
-        m_uiFetidRotTimer            = urand(8000, 13000);
-        m_uiBaneTimer                = urand(18000, 23000);
-        m_uiDarkSlashTimer           = urand(28000, 33000);
-        m_uiAncestorsVengeanceTimer  = 50000;
-        m_uiOrbTargetChanger         = 5000;
-        m_uiOrbGUID                  = 0;
-        m_uiCurentBoat               = 0;
-        m_uiHealthAmountModifier     = 1;
+        m_bIsBjorn                  = false;
+        m_bIsHaldor                 = false;
+        m_bIsRanulf                 = false;
+        m_bIsTorgyn                 = false;
+        bKingSequence               = false;
+        bIsInRun                    = false;
+        m_uiFetidRotTimer           = urand(8000, 13000);
+        m_uiBaneTimer               = urand(18000, 23000);
+        m_uiDarkSlashTimer          = urand(28000, 33000);
+        m_uiAncestorsVengeanceTimer = 50000;
+        m_uiOrbTargetChanger        = 5000;
+        m_uiOrbGUID                 = 0;
+        m_uiCurrentKing             = 0;
+        m_uiPauseTimer              = 0;
+        m_uiThreshhold              = 80;
+        subphase                    = 0;
     }
 
     void Aggro(Unit* pWho)
     {
         DoScriptText(SAY_AGGRO, m_creature);
     }
+
+     void MovementInform(uint32 uiMotionType, uint32 uiPointId)
+     {
+         if (uiMotionType != POINT_MOTION_TYPE)
+            return;
+
+         if (!bKingSequence)
+         {
+             bIsInRun      = false;
+             bKingSequence = true;
+         }
+     }
+
 
     void KilledUnit(Unit* pVictim)
     {
@@ -178,136 +190,160 @@ struct MANGOS_DLL_DECL boss_ymironAI : public ScriptedAI
                 break;
             default: break;
         }
+
+        Summons.push_back(pSummoned->GetGUID());
+    }
+
+    void DespawnAdds()
+    {
+        if (!Summons.empty())
+            for (std::list<uint64>::iterator itr = Summons.begin(); itr != Summons.end(); ++itr)
+            {
+                if (Creature* pSummoned = (Creature*)Unit::GetUnit((*m_creature), *itr))
+                    pSummoned->ForcedDespawn();
+            }
     }
 
     void UpdateAI(const uint32 uiDiff)
     {
-        if(!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+        if(!m_creature->SelectHostileTarget() || !m_creature->getVictim() || !m_creature->isInCombat())
             return;
 
-        if(m_bIsPause)
+        if(bKingSequence)
         {
-            SetCombatMovement(false);
-
             if(m_uiPauseTimer < uiDiff)
             {
-                SetCombatMovement(true);
-                m_bIsPause = false;
+                m_creature->MonsterSay("zomed",LANG_UNIVERSAL,NULL);
+                if (Creature* pKingHandler = (Creature*)Unit::GetUnit((*m_creature), m_pInstance->GetData64(Kings[m_uiCurrentKing])))
+                {
+                    m_creature->MonsterSay("glimps",LANG_UNIVERSAL,NULL);
+                    switch(subphase)
+                    {
+                        case 0:
+                        case 2:
+                        case 4:
+                        case 6:
+                            m_uiThreshhold = m_uiThreshhold - 20;
+                            m_creature->CastSpell(pKingHandler, SPELL_CHANNEL_YMIRON_TO_SPIRIT, true);
+                            break;
+                        case 1:
+                        case 3:
+                        case 5:
+                        case 7:
+                            pKingHandler->CastSpell(m_creature, SPELL_CHANNEL_SPIRIT_TO_YMIRON, true);
+                            ++m_uiCurrentKing;
+                            bKingSequence = false;
+                            bIsInRun = false;
+                            SetCombatMovement(true);
+                            break;
+                        default: break;
+                    }
+                    ++subphase;
+                }
+                m_uiPauseTimer = 6000;
             }else m_uiPauseTimer -= uiDiff;
-            return;
         }
-
-        if(m_uiOrbTargetChanger < uiDiff)
+        else if (!bIsInRun)
         {
-            Creature* pSpirit = (Creature*)Unit::GetUnit(*m_creature, m_uiOrbGUID);
-            if(pSpirit && pSpirit->isAlive())
-                if(Unit* pPlayer = SelectUnit(SELECT_TARGET_RANDOM, 0))
-                    pSpirit->GetMotionMaster()->MoveChase(pPlayer);
-            m_uiOrbTargetChanger = 15000;
-        }else m_uiOrbTargetChanger -= uiDiff;
-
-        if(m_uiBaneTimer < uiDiff)
-        {
-            DoCast(m_creature, m_bIsRegularMode ? SPELL_BANE : H_SPELL_BANE, true);
-            m_uiBaneTimer = urand(15000, 20000);
-        }else m_uiBaneTimer -= uiDiff;
-
-        if(m_uiFetidRotTimer < uiDiff)
-        {
-            if(Unit* pPlayer = SelectUnit(SELECT_TARGET_RANDOM,0))
-                m_creature->CastSpell(pPlayer, m_bIsRegularMode ? SPELL_FETID_ROT : H_SPELL_FETID_ROT, true);
-            m_uiFetidRotTimer = urand(10000, 15000);
-        }else m_uiFetidRotTimer -= uiDiff;
-
-        if(m_uiDarkSlashTimer < uiDiff)
-        {
-            if(Unit* pUnit = m_creature->getVictim())
+            if(m_uiOrbTargetChanger < uiDiff)
             {
-                int32 damage = int32(pUnit->GetMaxHealth() * 0.5);
-                m_creature->CastCustomSpell(pUnit, SPELL_DARK_SLASH, &damage, 0, 0, false); 
-            }
-            m_uiDarkSlashTimer = urand(30000, 35000);
-        }else m_uiDarkSlashTimer -= uiDiff;
+                Creature* pSpirit = (Creature*)Unit::GetUnit(*m_creature, m_uiOrbGUID);
+                if(pSpirit && pSpirit->isAlive())
+                    if(Unit* pPlayer = SelectUnit(SELECT_TARGET_RANDOM, 0))
+                        pSpirit->GetMotionMaster()->MoveChase(pPlayer);
+                m_uiOrbTargetChanger = 15000;
+            }else m_uiOrbTargetChanger -= uiDiff;
 
-        if(m_uiAncestorsVengeanceTimer < uiDiff)
-        {
-            DoCast(m_creature, SPELL_ANCESTORS_VENGEANCE, false);
-            m_uiAncestorsVengeanceTimer =  (m_bIsRegularMode ? urand(60000, 65000) : urand(45000, 50000));
-        }else m_uiAncestorsVengeanceTimer -= uiDiff;
-
-        if(m_bIsHaldor && m_uiAbilityHALDORTimer < uiDiff)
-        {
-            if(m_creature->getVictim())
-                m_creature->CastSpell(m_creature->getVictim(), m_bIsRegularMode ? SPELL_SPIRIT_STRIKE : H_SPELL_SPIRIT_STRIKE, true);
-            m_uiAbilityHALDORTimer = 5000; // overtime
-        } else m_uiAbilityHALDORTimer -= uiDiff;
-
-        if(m_bIsTorgyn && m_uiAbilityTORGYNTimer <= uiDiff)
-        {
-            DoCast(m_creature, SPELL_AVENGING_SPIRITS, false);
-            m_uiAbilityTORGYNTimer = 50000;
-        }else m_uiAbilityTORGYNTimer -= uiDiff;
-
-        if(m_bIsRanulf && m_uiAbilityRANULFTimer < uiDiff)
-        {
-            m_creature->CastSpell(m_creature, m_bIsRegularMode ? SPELL_SPIRIT_BURST : H_SPELL_SPIRIT_BURST, true);
-            m_uiAbilityRANULFTimer = 10000;
-        } else m_uiAbilityRANULFTimer -= uiDiff;
-
-        if(m_bIsBjorn && m_uiAbilityBJORNTimer < uiDiff)
-        {
-            DoCast(m_creature, SPELL_SUMMON_SPIRIT_FOUNT, false);
-            m_bIsBjorn = false;
-        } else m_uiAbilityBJORNTimer -= uiDiff;
-
-        if(float(m_creature->GetHealth()*100 / m_creature->GetMaxHealth()) < float(100-((m_bIsRegularMode ? 33 : 20) * m_uiHealthAmountModifier)))
-        {
-            if(Creature* pSpirit = (Creature*)Unit::GetUnit(*m_creature, m_uiOrbGUID))
+            if(m_uiBaneTimer < uiDiff)
             {
-                pSpirit->setFaction(35);
-                pSpirit->ForcedDespawn();
-            }
+                DoCast(m_creature, m_bIsRegularMode ? SPELL_BANE : H_SPELL_BANE, true);
+                m_uiBaneTimer = urand(15000, 20000);
+            }else m_uiBaneTimer -= uiDiff;
 
-            if(m_creature->getVictim())
-                m_creature->CastSpell(m_creature->getVictim(), SPELL_SCREAMS_OF_THE_DEAD, true);
-
-            m_creature->CastSpell(m_creature, SPELL_CHANNEL_YMIRON_TO_SPIRIT, true);
-
-            if(m_uiCurentBoat == 0)
-                m_uiCurentBoat = urand(1, 4);
-            else if(m_uiCurentBoat == 4)
-                    m_uiCurentBoat = 1;
-            else
-                ++m_uiCurentBoat;
-
-            m_bIsBjorn  = false;
-            m_bIsHaldor = false;
-            m_bIsRanulf = false;
-            m_bIsTorgyn = false;
-
-            uint32 ID = 0;
-            switch(m_uiCurentBoat)
+            if(m_uiFetidRotTimer < uiDiff)
             {
-                case 1: DoScriptText(SAY_SUMMON_BJORN, m_creature);  ID = CREATURE_BJORN_VISUAL;  m_uiAbilityBJORNTimer  = 8000; m_bIsBjorn  = true; break;
-                case 2: DoScriptText(SAY_SUMMON_HALDOR, m_creature); ID = CREATURE_HALDOR_VISUAL; m_uiAbilityHALDORTimer = 8000; m_bIsHaldor = true; break;
-                case 3: DoScriptText(SAY_SUMMON_RANULF, m_creature); ID = CREATURE_RANULF_VISUAL; m_uiAbilityRANULFTimer = 8000; m_bIsRanulf = true; break;
-                case 4: DoScriptText(SAY_SUMMON_TORGYN, m_creature); ID = CREATURE_TORGYN_VISUAL; m_uiAbilityTORGYNTimer = 8000; m_bIsTorgyn = true; break;
-                default: break;
-            }
+                if(Unit* pPlayer = SelectUnit(SELECT_TARGET_RANDOM,0))
+                    m_creature->CastSpell(pPlayer, m_bIsRegularMode ? SPELL_FETID_ROT : H_SPELL_FETID_ROT, true);
+                m_uiFetidRotTimer = urand(10000, 15000);
+            }else m_uiFetidRotTimer -= uiDiff;
 
-            if (Creature* pBoat = m_creature->SummonCreature(ID, BoatCorrds[m_uiCurentBoat-1][0], BoatCorrds[m_uiCurentBoat-1][1], m_creature->GetPositionZ()+2, 0, TEMPSUMMON_TIMED_DESPAWN, 30000))
+            if(m_uiDarkSlashTimer < uiDiff)
             {
-                pBoat->CastSpell(m_creature, SPELL_CHANNEL_SPIRIT_TO_YMIRON, true);
-                pBoat->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                pBoat->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                if(Unit* pUnit = m_creature->getVictim())
+                {
+                    int32 damage = int32(pUnit->GetMaxHealth() * 0.5);
+                    m_creature->CastCustomSpell(pUnit, SPELL_DARK_SLASH, &damage, 0, 0, false); 
+                }
+                m_uiDarkSlashTimer = urand(30000, 35000);
+            }else m_uiDarkSlashTimer -= uiDiff;
+
+            if(m_uiAncestorsVengeanceTimer < uiDiff)
+            {
+                DoCast(m_creature, SPELL_ANCESTORS_VENGEANCE, false);
+                m_uiAncestorsVengeanceTimer =  (m_bIsRegularMode ? urand(60000, 65000) : urand(45000, 50000));
+            }else m_uiAncestorsVengeanceTimer -= uiDiff;
+
+            if(m_bIsHaldor && m_uiAbilityHALDORTimer < uiDiff)
+            {
+                if(m_creature->getVictim())
+                    m_creature->CastSpell(m_creature->getVictim(), m_bIsRegularMode ? SPELL_SPIRIT_STRIKE : H_SPELL_SPIRIT_STRIKE, true);
+                m_uiAbilityHALDORTimer = 5000; // overtime
+            } else m_uiAbilityHALDORTimer -= uiDiff;
+
+            if(m_bIsTorgyn && m_uiAbilityTORGYNTimer <= uiDiff)
+            {
+                DoCast(m_creature, SPELL_AVENGING_SPIRITS, false);
+                m_uiAbilityTORGYNTimer = 50000;
+            }else m_uiAbilityTORGYNTimer -= uiDiff;
+
+            if(m_bIsRanulf && m_uiAbilityRANULFTimer < uiDiff)
+            {
+                m_creature->CastSpell(m_creature, m_bIsRegularMode ? SPELL_SPIRIT_BURST : H_SPELL_SPIRIT_BURST, true);
+                m_uiAbilityRANULFTimer = 10000;
+            } else m_uiAbilityRANULFTimer -= uiDiff;
+
+            if(m_bIsBjorn && m_uiAbilityBJORNTimer < uiDiff)
+            {
+                DoCast(m_creature, SPELL_SUMMON_SPIRIT_FOUNT, false);
+                m_bIsBjorn = false;
+            } else m_uiAbilityBJORNTimer -= uiDiff;
+
+            if((m_creature->GetHealth() * 100 / m_creature->GetMaxHealth()) < m_uiThreshhold)
+            {
+                /*if(Creature* pSpirit = (Creature*)Unit::GetUnit(*m_creature, m_uiOrbGUID))
+                {
+                    pSpirit->setFaction(35);
+                    pSpirit->ForcedDespawn();
+                } */
+
+                //if(m_creature->getVictim())
+                //    m_creature->CastSpell(m_creature->getVictim(), SPELL_SCREAMS_OF_THE_DEAD, true);
+
+                m_bIsBjorn  = false;
+                m_bIsHaldor = false;
+                m_bIsRanulf = false;
+                m_bIsTorgyn = false;
+
+                switch(m_uiCurrentKing)
+                {
+                    case 0: DoScriptText(SAY_SUMMON_BJORN, m_creature);  m_uiAbilityBJORNTimer  = 8000; m_bIsBjorn  = true; break;
+                    case 1: DoScriptText(SAY_SUMMON_HALDOR, m_creature); m_uiAbilityHALDORTimer = 8000; m_bIsHaldor = true; break;
+                    case 2: DoScriptText(SAY_SUMMON_RANULF, m_creature); m_uiAbilityRANULFTimer = 8000; m_bIsRanulf = true; break;
+                    case 3: DoScriptText(SAY_SUMMON_TORGYN, m_creature); m_uiAbilityTORGYNTimer = 8000; m_bIsTorgyn = true; break;
+                    default: break;
+                }
+
+                if (Creature* pKingHandler = (Creature*)Unit::GetUnit((*m_creature), m_pInstance->GetData64(Kings[m_uiCurrentKing])))
+                {
+                    float x, y, z;
+                    pKingHandler->GetClosePoint(x, y, z, pKingHandler->GetObjectSize(), 2*INTERACTION_DISTANCE, pKingHandler->GetAngle(m_creature));
+                    m_creature->GetMotionMaster()->MovePoint(0, x, y, z);
+                    bIsInRun = true;
+                }     
             }
 
-            m_bIsPause = true;
-            m_uiPauseTimer = 6000;
-            ++m_uiHealthAmountModifier;
+            DoMeleeAttackIfReady();
         }
-
-        DoMeleeAttackIfReady();
     }
 };
 
